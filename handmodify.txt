@@ -1,0 +1,56 @@
+import cv2
+import serial
+import cvzone
+from cvzone.HandTrackingModule import HandDetector
+from picamera2 import Picamera2
+
+# Initialize Picamera2
+picam2 = Picamera2()
+picam2.preview_configuration.main.size = (640, 480)
+picam2.preview_configuration.main.format = "RGB888"
+picam2.preview_configuration.align()
+picam2.configure("preview")
+picam2.start()
+
+# Initialize the hand detector
+detector = HandDetector(maxHands=1, detectionCon=0.5, minTrackCon=0.5)
+bt=serial.Serial('/dev/rfcomm4',9600)  
+while True:
+    # Capture image from the camera
+    im = picam2.capture_array()
+    im = cv2.flip(im, -1)
+
+    # Detect hands
+    hands, im = detector.findHands(im, draw=True)
+
+    if hands:
+        hand = hands[0]
+        lmlist = hand['lmList']
+        cx = lmlist[4][0]
+        cy = lmlist[4][1]
+
+        fingers = detector.fingersUp(hand)
+        #print(fingers)
+        count_1 = fingers.count(1)
+        #count_0 = fingers.count(0)
+
+        print("Count of 1s:", count_1)
+        #99999print("Count of 0s:", count_0)
+        string='X{0}'.format(count_1)
+        bt.write(string.encode("utf-8")) 
+
+        # Draw a circle on the tip of the index finger
+        cv2.circle(im, (cx, cy), 13, (255, 0, 0), -1)
+
+    # Display the image
+    cv2.imshow("im", im)
+
+    # Break the loop if the ESC key is pressed
+    key = cv2.waitKey(1)
+    if key == 27:
+        break
+
+# Clean up
+cv2.destroyAllWindows()
+#  98:DA:50:02:B3:C2
+
